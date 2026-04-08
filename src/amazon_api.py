@@ -38,13 +38,23 @@ class SPAPIClient:
     def _get_access_token(self) -> str:
         if self._access_token:
             return self._access_token
+        # Log credential presence (not values) for debugging
         logger.info("Requesting SP-API access token...")
+        logger.info("  CLIENT_ID present: %s (len=%d, prefix=%s)",
+                     bool(SP_API_CLIENT_ID), len(SP_API_CLIENT_ID),
+                     SP_API_CLIENT_ID[:20] + "..." if len(SP_API_CLIENT_ID) > 20 else SP_API_CLIENT_ID)
+        logger.info("  CLIENT_SECRET present: %s (len=%d)", bool(SP_API_CLIENT_SECRET), len(SP_API_CLIENT_SECRET))
+        logger.info("  REFRESH_TOKEN present: %s (len=%d, prefix=%s)",
+                     bool(SP_API_REFRESH_TOKEN), len(SP_API_REFRESH_TOKEN),
+                     SP_API_REFRESH_TOKEN[:5] + "..." if len(SP_API_REFRESH_TOKEN) > 5 else "???")
         resp = requests.post(TOKEN_URL, data={
             "grant_type": "refresh_token",
             "refresh_token": SP_API_REFRESH_TOKEN,
             "client_id": SP_API_CLIENT_ID,
             "client_secret": SP_API_CLIENT_SECRET,
         }, timeout=30)
+        if resp.status_code != 200:
+            logger.error("Token request failed: HTTP %d — Body: %s", resp.status_code, resp.text[:300])
         resp.raise_for_status()
         self._access_token = resp.json()["access_token"]
         logger.info("SP-API access token obtained successfully")
