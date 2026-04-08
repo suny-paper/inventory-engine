@@ -1,0 +1,38 @@
+name: "SUN'Y Daily Inventory Engine"
+
+on:
+  schedule:
+    # Run daily at 6:00 AM PST (14:00 UTC)
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  daily-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run inventory engine
+        env:
+          SP_API_REFRESH_TOKEN: ${{ secrets.SP_API_REFRESH_TOKEN }}
+          SP_API_CLIENT_ID: ${{ secrets.SP_API_CLIENT_ID }}
+          SP_API_CLIENT_SECRET: ${{ secrets.SP_API_CLIENT_SECRET }}
+          SP_API_MARKETPLACE_ID: ${{ secrets.SP_API_MARKETPLACE_ID }}
+          GOOGLE_SHEETS_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+        run: python -m src.main
