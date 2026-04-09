@@ -55,13 +55,18 @@ def _pst_now() -> str:
 # ── Tab: Live Dashboard ────────────────────────────────────────────────────
 
 DASHBOARD_HEADERS = [
-    "Timestamp", "SKU", "ASIN", "Hero?",
+    # Decision columns first — scan left-to-right for action
+    "Status", "Action", "SKU", "ASIN", "Hero?",
+    # Key metrics
+    "Days of Cover", "Stockout Est", "Target Min", "Target Max",
+    # Inventory breakdown
     "FBA On Hand", "FBA Inbound", "Factory Ready", "Factory WIP",
-    "Total Supply", "7d Avg", "30d Avg", "Base Velocity",
-    "Seasonal Mult", "Forecasted Daily Sales",
-    "Days of Cover", "Target Min", "Target Max",
-    "Status", "Action",
+    "WIP Date Complete", "Days Until WIP Done", "Total Supply",
+    # Velocity & forecast
+    "Forecasted Daily Sales", "Base Velocity", "7d Avg", "30d Avg", "Seasonal Mult",
+    # Reorder
     "Required Units", "Net Production Needed",
+    "Timestamp",
 ]
 
 
@@ -72,15 +77,16 @@ def write_dashboard(analyses: list[SKUAnalysis]) -> None:
 
     rows = [DASHBOARD_HEADERS]
     for a in analyses:
+        wip_days_str = str(a.days_until_wip_complete) if a.days_until_wip_complete >= 0 else ""
         rows.append([
-            ts, a.sku, a.asin, "YES" if a.is_hero else "",
+            a.status, a.action, a.sku, a.asin, "YES" if a.is_hero else "",
+            round(a.days_of_cover, 1), a.stockout_est, a.target_min, a.target_max,
             a.fba_on_hand, a.fba_inbound, a.factory_ready, a.factory_wip,
-            a.total_supply, round(a.avg_7d, 2), round(a.avg_30d, 2),
-            round(a.base_velocity, 2),
-            a.seasonal_multiplier, round(a.forecasted_daily_sales, 2),
-            round(a.days_of_cover, 1), a.target_min, a.target_max,
-            a.status, a.action,
+            a.wip_date_complete, wip_days_str, a.total_supply,
+            round(a.forecasted_daily_sales, 2), round(a.base_velocity, 2),
+            round(a.avg_7d, 2), round(a.avg_30d, 2), a.seasonal_multiplier,
             a.required_units, a.net_production_needed,
+            ts,
         ])
 
     service.spreadsheets().values().update(
@@ -133,12 +139,12 @@ def write_shipment_planner(plan: ShipmentPlan) -> None:
 def read_factory_input() -> list[dict]:
     """Read factory input from the editable Factory Input tab.
 
-    Expected columns: SKU, ASIN, factory_ready_units, factory_wip_units
+    Expected columns: SKU, ASIN, factory_ready_units, factory_wip_units, wip_date_complete
     """
     service = _get_sheets_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=GOOGLE_SPREADSHEET_ID,
-        range=f"'{TAB_FACTORY}'!A2:D100",
+        range=f"'{TAB_FACTORY}'!A2:E100",
     ).execute()
     rows = result.get("values", [])
     factory_data = []
@@ -150,6 +156,7 @@ def read_factory_input() -> list[dict]:
             "asin": row[1],
             "factory_ready_units": int(row[2] or 0),
             "factory_wip_units": int(row[3] or 0),
+            "wip_date_complete": row[4].strip() if len(row) > 4 and row[4] else "",
         })
     return factory_data
 
@@ -183,7 +190,8 @@ def read_seasonality_overrides() -> dict[int, float]:
 INVENTORY_HISTORY_HEADERS = [
     "Timestamp", "SKU", "ASIN",
     "FBA On Hand", "FBA Inbound", "Factory Ready", "Factory WIP",
-    "Total Supply", "Forecasted Daily", "Days of Cover", "Status",
+    "WIP Date Complete", "Total Supply", "Forecasted Daily", "Days of Cover",
+    "Stockout Est", "Status",
 ]
 
 SALES_HISTORY_HEADERS = [
@@ -201,8 +209,8 @@ def append_inventory_history(analyses: list[SKUAnalysis]) -> None:
         rows.append([
             ts, a.sku, a.asin,
             a.fba_on_hand, a.fba_inbound, a.factory_ready, a.factory_wip,
-            a.total_supply, round(a.forecasted_daily_sales, 2),
-            round(a.days_of_cover, 1), a.status,
+            a.wip_date_complete, a.total_supply, round(a.forecasted_daily_sales, 2),
+            round(a.days_of_cover, 1), a.stockout_est, a.status,
         ])
 
     service.spreadsheets().values().append(
@@ -265,9 +273,9 @@ def ensure_tabs_exist() -> None:
     if TAB_FACTORY not in existing:
         service.spreadsheets().values().update(
             spreadsheetId=GOOGLE_SPREADSHEET_ID,
-            range=f"'{TAB_FACTORY}'!A1:D1",
+            range=f"'{TAB_FACTORY}'!A1:E1",
             valueInputOption="RAW",
-            body={"values": [["SKU", "ASIN", "factory_ready_units", "factory_wip_units"]]},
+            body={"values": [["SKU", "ASIN", "factory_ready_units", "factory_wip_units", "wip_date_complete"]]},
         ).execute()
 
     # Seed Seasonality Config with defaults if empty

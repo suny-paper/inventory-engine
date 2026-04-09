@@ -57,6 +57,7 @@ def run() -> None:
             asin=row["asin"],
             factory_ready_units=row["factory_ready_units"],
             factory_wip_units=row["factory_wip_units"],
+            wip_date_complete=row.get("wip_date_complete", ""),
         )
 
     logger.info("Reading seasonality overrides...")

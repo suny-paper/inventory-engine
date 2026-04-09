@@ -5,7 +5,7 @@ SUN'Y Inventory Forecasting & Reorder Decision Engine — Core Calculations
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from .config import (
     CONTAINER_CAPACITY_UNITS,
@@ -49,6 +49,7 @@ class FactoryInput:
     asin: str
     factory_ready_units: int = 0
     factory_wip_units: int = 0
+    wip_date_complete: str = ""  # Expected completion date for WIP (YYYY-MM-DD or human-readable)
 
 
 @dataclass
@@ -85,6 +86,11 @@ class SKUAnalysis:
     days_of_cover: float
     target_min: int
     target_max: int
+
+    # Factory timeline
+    wip_date_complete: str  # When current WIP will be done
+    days_until_wip_complete: int  # Days from today until WIP done (-1 if unknown)
+    stockout_est: str  # Estimated stockout date based on days of cover
 
     # Decision
     status: str        # CRITICAL / AT_RISK / HEALTHY / OVERSTOCK
@@ -171,6 +177,23 @@ def analyze_sku(
         forecasted_daily, total_supply, factory.factory_wip_units, target_days,
     )
 
+    # WIP completion timeline
+    wip_date_complete = factory.wip_date_complete
+    days_until_wip = -1
+    if wip_date_complete:
+        try:
+            wip_dt = datetime.strptime(wip_date_complete, "%Y-%m-%d").date()
+            days_until_wip = max(0, (wip_dt - date.today()).days)
+        except ValueError:
+            pass  # non-standard date format, keep -1
+
+    # Estimated stockout date
+    if forecasted_daily > 0 and days_of_cover < 999:
+        stockout_date = date.today() + timedelta(days=int(days_of_cover))
+        stockout_est = stockout_date.strftime("%Y-%m-%d")
+    else:
+        stockout_est = "N/A"
+
     return SKUAnalysis(
         sku=inv.sku,
         asin=inv.asin,
@@ -188,6 +211,9 @@ def analyze_sku(
         days_of_cover=days_of_cover,
         target_min=target_min,
         target_max=target_max,
+        wip_date_complete=wip_date_complete,
+        days_until_wip_complete=days_until_wip,
+        stockout_est=stockout_est,
         status=status,
         action=action,
         required_units=required_units,
