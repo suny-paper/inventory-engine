@@ -2,6 +2,8 @@
 SUN'Y Inventory Forecasting & Reorder Decision Engine — Configuration
 """
 
+from __future__ import annotations
+
 import os
 from datetime import date
 
@@ -58,11 +60,8 @@ HERO_STOCKOUT_HORIZON = 30      # days
 VELOCITY_7D_WEIGHT = 0.7
 VELOCITY_30D_WEIGHT = 0.3
 
-# ── Amazon SP-API credentials (from environment) ───────────────────────────
-SP_API_REFRESH_TOKEN = os.getenv("SP_API_REFRESH_TOKEN", "")
-SP_API_CLIENT_ID = os.getenv("SP_API_CLIENT_ID", "")
-SP_API_CLIENT_SECRET = os.getenv("SP_API_CLIENT_SECRET", "")
-SP_API_MARKETPLACE_ID = os.getenv("SP_API_MARKETPLACE_ID", "ATVPDKIKX0DER")  # US
+# ── Cloud SQL (populated by the consolidated Amazon data pipeline) ─────────
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # ── Google Sheets credentials ──────────────────────────────────────────────
 GOOGLE_SHEETS_CREDENTIALS_JSON = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON", "")

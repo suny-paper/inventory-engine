@@ -1,4 +1,4 @@
-requests>=2.31.0
+psycopg2-binary>=2.9.9
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
 pytz>=2023.3

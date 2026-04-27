@@ -2,7 +2,7 @@
 SUN'Y Inventory Forecasting & Reorder Decision Engine — Daily Orchestrator
 
 Run this script daily (via GitHub Actions or manually) to:
-1. Pull FBA inventory + sales from Amazon SP-API
+1. Read FBA inventory + sales from Cloud SQL (populated by the consolidated pipeline)
 2. Read factory inputs + seasonality overrides from Google Sheets
 3. Run forecasting & decision logic for each SKU
 4. Write results to Google Sheets (dashboard, shipment planner, history)
@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import sys
 
-from .amazon_api import SPAPIClient
+from .amazon_api import CloudSQLReader
 from .calculations import (
     FactoryInput,
     InventorySnapshot,
@@ -63,10 +63,13 @@ def run() -> None:
     logger.info("Reading seasonality overrides...")
     seasonality_overrides = read_seasonality_overrides()
 
-    # Step 2: Pull Amazon data
-    logger.info("Fetching Amazon SP-API data...")
-    client = SPAPIClient()
-    inventories, sales_list = client.fetch_all(HERO_ASINS)
+    # Step 2: Read Amazon data from Cloud SQL
+    logger.info("Reading Amazon data from Cloud SQL...")
+    reader = CloudSQLReader()
+    try:
+        inventories, sales_list = reader.fetch_all(HERO_ASINS)
+    finally:
+        reader.close()
 
     # Build lookup maps
     inv_map: dict[str, InventorySnapshot] = {inv.asin: inv for inv in inventories}
